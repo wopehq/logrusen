@@ -1,58 +1,58 @@
 package logrusen
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
 
 	"github.com/evalphobia/logrus_sentry"
 	"github.com/rifflock/lfshook"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
 type StandardLogger interface {
-	Trace(event, topic, description string)
-	Debug(event, topic, description string)
-	Info(event, topic, description string)
-	Warn(event, topic, description string)
-	Error(event, topic, description, errorMessage string)
-	Fatal(event, topic, description, errorMessage string)
-	Panic(event, topic, description, errorMessage string)
+	Debug(message string, fields log.Fields)
+	Info(message string, fields log.Fields)
+	Warn(message string, err error, fields log.Fields)
+	Error(message string, err error, fields log.Fields)
+	Fatal(message string, err error, fields log.Fields)
+	Panic(message string, err error, fields log.Fields)
 
-	Setup(env, dsn string) (*standardLogger, error)
+	Setup() error
+	SetupWithSentry(dsn string) error
 }
 
 type standardLogger struct {
-	*logrus.Logger
+	*log.Logger
 }
 
 func New() StandardLogger {
-	baseLogger := logrus.New()
+	baseLogger := log.New()
 	standardLogger := &standardLogger{baseLogger}
 	return standardLogger
 }
 
-func (l *standardLogger) Setup(env, dsn string) (*standardLogger, error) {
-	switch env {
-	case "prod":
-		err := setProduction(dsn)
-		if err != nil {
-			return nil, err
-		}
-	case "dev":
-		setDevelopment()
-	case "":
-		return nil, errors.New("env variable is nil (must: dev/prod)")
-	default:
-		return nil, errors.New("invalid env variable (must: dev/prod)")
-	}
-	return nil, nil
+func (l *standardLogger) Setup() error {
+	setDefault()
+	return nil
 }
 
-func setDevelopment() {
+func (l *standardLogger) SetupWithSentry(dsn string) error {
+	if dsn != "" {
+		err := setDefaultWithSentry(dsn)
+		if err != nil {
+			return err
+		}
+	} else {
+		setDefault()
+	}
+	return nil
+}
+
+func setDefault() {
 	log.SetOutput(os.Stdout)
+
+	log.SetLevel(log.DebugLevel)
 
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
@@ -60,8 +60,10 @@ func setDevelopment() {
 	})
 }
 
-func setProduction(dsn string) error {
+func setDefaultWithSentry(dsn string) error {
 	log.SetOutput(os.Stdout)
+
+	log.SetLevel(log.DebugLevel)
 
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
@@ -70,21 +72,21 @@ func setProduction(dsn string) error {
 
 	log.AddHook(lfshook.NewHook(
 		lfshook.PathMap{
-			logrus.InfoLevel:  "logs.log",
-			logrus.ErrorLevel: "logs.log",
-			logrus.DebugLevel: "logs.log",
-			logrus.FatalLevel: "logs.log",
-			logrus.PanicLevel: "logs.log",
-			logrus.TraceLevel: "logs.log",
-			logrus.WarnLevel:  "logs.log",
+			log.InfoLevel:  "logs.log",
+			log.ErrorLevel: "logs.log",
+			log.DebugLevel: "logs.log",
+			log.FatalLevel: "logs.log",
+			log.PanicLevel: "logs.log",
+			log.TraceLevel: "logs.log",
+			log.WarnLevel:  "logs.log",
 		},
 		&log.JSONFormatter{},
 	))
 
 	sentryHook, err := logrus_sentry.NewSentryHook(dsn, []log.Level{
-		logrus.PanicLevel,
-		logrus.FatalLevel,
-		logrus.ErrorLevel,
+		log.PanicLevel,
+		log.FatalLevel,
+		log.ErrorLevel,
 	})
 	if err != nil {
 		return err
@@ -94,70 +96,78 @@ func setProduction(dsn string) error {
 	return nil
 }
 
-func stdFields(event, topic string) *log.Fields {
-	return &log.Fields{
-		"event": event,
-		"topic": topic,
+// Const Log Variables
+func constFields(fields log.Fields) log.Fields {
+	if fields == nil {
+		fields = log.Fields{}
 	}
-}
-
-func errFields(event, topic, description string) *log.Fields {
 	alloc, totalAlloc, sys, numGC := PrintMemUsage()
 	pc, _, line, _ := runtime.Caller(2)
-	return &log.Fields{
-		"description":   description,
-		"event":         event,
-		"topic":         topic,
-		"caller":        fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), line),
-		"memAlloc":      alloc,
-		"totalMemAlloc": totalAlloc,
-		"sysMem":        sys,
-		"numGC":         numGC,
-		"numCPU":        runtime.NumCPU(),
-		"numGoroutine":  runtime.NumGoroutine(),
-	}
+	fields["memAlloc"] = alloc
+	fields["totalMemAlloc"] = totalAlloc
+	fields["sysMem"] = sys
+	fields["numGC"] = numGC
+	fields["numCPU"] = numGC
+	fields["numGC"] = runtime.NumCPU()
+	fields["numGoroutine"] = runtime.NumGoroutine()
+	fields["caller"] = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), line)
+	return fields
 }
 
-func (l *standardLogger) Trace(event, topic, description string) {
-	fields := stdFields(event, topic)
+// DEBUG:
+// message* user friendly error messega
+// fields* can be nil or can be env and system status variables
+func (l *standardLogger) Debug(message string, fields log.Fields) {
+	fields = constFields(fields)
 
-	log.WithFields(*fields).Trace(description)
+	log.WithFields(fields).Debug(message)
 }
 
-func (l *standardLogger) Debug(event, topic, description string) {
-	fields := stdFields(event, topic)
+// INFO:
+// message* user friendly error messega
+// fields* can be nil or can be env and system status variables
+func (l *standardLogger) Info(message string, fields log.Fields) {
+	fields = constFields(fields)
 
-	log.WithFields(*fields).Debug(description)
+	log.WithFields(fields).Info(message)
 }
 
-func (l *standardLogger) Info(event, topic, description string) {
-	fields := stdFields(event, topic)
+// Warn:
+// message* user friendly error message
+// err (error): An error obtained from a failed call to a previous method or function
+// fields* can be nil or can be env and system status variables
+func (l *standardLogger) Warn(message string, err error, fields log.Fields) {
+	fields = constFields(fields)
+	fields["error"] = err
 
-	log.WithFields(*fields).Info(description)
+	log.WithFields(fields).Warn(message)
 }
 
-func (l *standardLogger) Warn(event, topic, description string) {
-	fields := stdFields(event, topic)
+// Error writes a message to the log of Error level status.
+// message* user friendly error message
+// err (error): An error obtained from a failed call to a previous method or function
+// fields* can be nil or can be env and system status variables
+func (l *standardLogger) Error(message string, err error, fields log.Fields) {
+	fields = constFields(fields)
+	fields["error"] = err
 
-	log.WithFields(*fields).Warn(description)
+	log.WithFields(fields).Error(message)
 }
 
-func (l *standardLogger) Error(event, topic, description, errorMessage string) {
-	fields := errFields(event, topic, description)
+// Fatal writes a message to the log of Fatal level status.
+// Note: Calling a Fatal() error will exit execution of the current program. Goroutines will not
+// execute on deferral. Only call Fatal() if you are sure that the program should exit as well.
+func (l *standardLogger) Fatal(message string, err error, fields log.Fields) {
+	fields = constFields(fields)
+	fields["error"] = err
 
-	log.WithFields(*fields).Error(errorMessage)
+	log.WithFields(fields).Fatal(message)
 }
 
-func (l *standardLogger) Fatal(event, topic, description, errorMessage string) {
-	fields := errFields(event, topic, description)
-
-	log.WithFields(*fields).Fatal(errorMessage)
-}
-
-func (l *standardLogger) Panic(event, topic, description, errorMessage string) {
-	fields := errFields(event, topic, description)
-
-	log.WithFields(*fields).Panic(errorMessage)
+// DONT PANIC
+// so, i use fatal function
+func (l *standardLogger) Panic(message string, err error, fields log.Fields) {
+	l.Fatal(message, err, fields)
 }
 
 func PrintMemUsage() (alloc, totalAlloc, sys, numGC uint64) {

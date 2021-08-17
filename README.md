@@ -1,6 +1,6 @@
 ## logrusen
 
-sentry integrated logrus package for our internal projects
+Wrapper for logrus package  
 
 ### Usage
 
@@ -8,13 +8,18 @@ sentry integrated logrus package for our internal projects
 import "github.com/teamseodo/logrusen"
 
 func main() {
-    logger := logrusen.New()
-    logger, err := logger.Setup("dev", "dsn")
-    if err != nil {
-	    logger.Fatal("main", "", "logger setting up error", fmt.Sprintf("%s", err))
+	logger := logrusen.New()
+	err := logger.Setup()
+
+	if err != nil {
+		logger.Error("Logger initialization error", err, nil)
 	}
-    logger.Info("main", "", "logger initialized..")
+	logger.Info("Info testing", nil)
+	logger.Debug("Debug testing", logrus.Fields{"test": "testvalue"})
+	logger.Warn("Warn logging", err, nil)
+	logger.Fatal("Fatal logging", err, nil)
 }
+
 ```
 
 
