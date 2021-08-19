@@ -101,7 +101,7 @@ func constFields(fields log.Fields) log.Fields {
 	if fields == nil {
 		fields = log.Fields{}
 	}
-	alloc, totalAlloc, sys, numGC := PrintMemUsage()
+	alloc, totalAlloc, sys, numGC := getMemUsage()
 	pc, _, line, _ := runtime.Caller(2)
 	fields["memAlloc"] = alloc
 	fields["totalMemAlloc"] = totalAlloc
@@ -170,7 +170,7 @@ func (l *standardLogger) Panic(message string, err error, fields log.Fields) {
 	l.Fatal(message, err, fields)
 }
 
-func PrintMemUsage() (alloc, totalAlloc, sys, numGC uint64) {
+func getMemUsage() (alloc, totalAlloc, sys, numGC uint64) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	return bToMb(m.Alloc), bToMb(m.TotalAlloc), bToMb(m.Sys), uint64(m.NumGC)
