@@ -101,6 +101,16 @@ func constFields(fields log.Fields) log.Fields {
 	if fields == nil {
 		fields = log.Fields{}
 	}
+	pc, _, line, _ := runtime.Caller(2)
+	fields["caller"] = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), line)
+	return fields
+}
+
+// Error Log Variables
+func errorFields(fields log.Fields) log.Fields {
+	if fields == nil {
+		fields = log.Fields{}
+	}
 	alloc, totalAlloc, sys, numGC := getMemUsage()
 	pc, _, line, _ := runtime.Caller(2)
 	fields["memAlloc"] = alloc
@@ -118,7 +128,7 @@ func constFields(fields log.Fields) log.Fields {
 // message* user friendly error messega
 // fields* can be nil or can be env and system status variables
 func (l *standardLogger) Debug(message string, fields log.Fields) {
-	fields = constFields(fields)
+	fields = errorFields(fields)
 
 	log.WithFields(fields).Debug(message)
 }
@@ -137,7 +147,7 @@ func (l *standardLogger) Info(message string, fields log.Fields) {
 // err (error): An error obtained from a failed call to a previous method or function
 // fields* can be nil or can be env and system status variables
 func (l *standardLogger) Warn(message string, err error, fields log.Fields) {
-	fields = constFields(fields)
+	fields = errorFields(fields)
 	fields["error"] = err
 
 	log.WithFields(fields).Warn(message)
@@ -148,7 +158,7 @@ func (l *standardLogger) Warn(message string, err error, fields log.Fields) {
 // err (error): An error obtained from a failed call to a previous method or function
 // fields* can be nil or can be env and system status variables
 func (l *standardLogger) Error(message string, err error, fields log.Fields) {
-	fields = constFields(fields)
+	fields = errorFields(fields)
 	fields["error"] = err
 
 	log.WithFields(fields).Error(message)
@@ -158,7 +168,7 @@ func (l *standardLogger) Error(message string, err error, fields log.Fields) {
 // Note: Calling a Fatal() error will exit execution of the current program. Goroutines will not
 // execute on deferral. Only call Fatal() if you are sure that the program should exit as well.
 func (l *standardLogger) Fatal(message string, err error, fields log.Fields) {
-	fields = constFields(fields)
+	fields = errorFields(fields)
 	fields["error"] = err
 
 	log.WithFields(fields).Fatal(message)
