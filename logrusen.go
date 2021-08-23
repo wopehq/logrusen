@@ -11,12 +11,12 @@ import (
 )
 
 type StandardLogger interface {
-	Debug(message string, fields log.Fields)
-	Info(message string, fields log.Fields)
-	Warn(message string, err error, fields log.Fields)
-	Error(message string, err error, fields log.Fields)
-	Fatal(message string, err error, fields log.Fields)
-	Panic(message string, err error, fields log.Fields)
+	Debug(message string, fields Fields)
+	Info(message string, fields Fields)
+	Warn(message string, err error, fields Fields)
+	Error(message string, err error, fields Fields)
+	Fatal(message string, err error, fields Fields)
+	Panic(message string, err error, fields Fields)
 
 	Setup() error
 	SetupWithSentry(dsn string) error
@@ -25,6 +25,8 @@ type StandardLogger interface {
 type standardLogger struct {
 	*log.Logger
 }
+
+type Fields log.Fields
 
 func New() StandardLogger {
 	baseLogger := log.New()
@@ -97,9 +99,9 @@ func setDefaultWithSentry(dsn string) error {
 }
 
 // Const Log Variables
-func constFields(fields log.Fields) log.Fields {
+func constFields(fields Fields) Fields {
 	if fields == nil {
-		fields = log.Fields{}
+		fields = Fields{}
 	}
 	pc, _, line, _ := runtime.Caller(2)
 	fields["caller"] = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), line)
@@ -107,9 +109,9 @@ func constFields(fields log.Fields) log.Fields {
 }
 
 // Error Log Variables
-func errorFields(fields log.Fields) log.Fields {
+func errorFields(fields Fields) Fields {
 	if fields == nil {
-		fields = log.Fields{}
+		fields = Fields{}
 	}
 	alloc, totalAlloc, sys, numGC := getMemUsage()
 	pc, _, line, _ := runtime.Caller(2)
@@ -127,56 +129,56 @@ func errorFields(fields log.Fields) log.Fields {
 // DEBUG:
 // message* user friendly error messega
 // fields* can be nil or can be env and system status variables
-func (l *standardLogger) Debug(message string, fields log.Fields) {
+func (l *standardLogger) Debug(message string, fields Fields) {
 	fields = errorFields(fields)
 
-	log.WithFields(fields).Debug(message)
+	log.WithFields(log.Fields(fields)).Debug(message)
 }
 
 // INFO:
 // message* user friendly error messega
 // fields* can be nil or can be env and system status variables
-func (l *standardLogger) Info(message string, fields log.Fields) {
+func (l *standardLogger) Info(message string, fields Fields) {
 	fields = constFields(fields)
 
-	log.WithFields(fields).Info(message)
+	log.WithFields(log.Fields(fields)).Info(message)
 }
 
 // Warn:
 // message* user friendly error message
 // err (error): An error obtained from a failed call to a previous method or function
 // fields* can be nil or can be env and system status variables
-func (l *standardLogger) Warn(message string, err error, fields log.Fields) {
+func (l *standardLogger) Warn(message string, err error, fields Fields) {
 	fields = errorFields(fields)
 	fields["error"] = err
 
-	log.WithFields(fields).Warn(message)
+	log.WithFields(log.Fields(fields)).Warn(message)
 }
 
 // Error writes a message to the log of Error level status.
 // message* user friendly error message
 // err (error): An error obtained from a failed call to a previous method or function
 // fields* can be nil or can be env and system status variables
-func (l *standardLogger) Error(message string, err error, fields log.Fields) {
+func (l *standardLogger) Error(message string, err error, fields Fields) {
 	fields = errorFields(fields)
 	fields["error"] = err
 
-	log.WithFields(fields).Error(message)
+	log.WithFields(log.Fields(fields)).Error(message)
 }
 
 // Fatal writes a message to the log of Fatal level status.
 // Note: Calling a Fatal() error will exit execution of the current program. Goroutines will not
 // execute on deferral. Only call Fatal() if you are sure that the program should exit as well.
-func (l *standardLogger) Fatal(message string, err error, fields log.Fields) {
+func (l *standardLogger) Fatal(message string, err error, fields Fields) {
 	fields = errorFields(fields)
 	fields["error"] = err
 
-	log.WithFields(fields).Fatal(message)
+	log.WithFields(log.Fields(fields)).Fatal(message)
 }
 
 // DONT PANIC
 // so, i use fatal function
-func (l *standardLogger) Panic(message string, err error, fields log.Fields) {
+func (l *standardLogger) Panic(message string, err error, fields Fields) {
 	l.Fatal(message, err, fields)
 }
 
