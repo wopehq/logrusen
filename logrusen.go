@@ -6,8 +6,17 @@ import (
 	"runtime"
 
 	"github.com/evalphobia/logrus_sentry"
-	"github.com/rifflock/lfshook"
+	"github.com/orandin/lumberjackrus"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	logFile    = "logs.log"
+	maxSize    = 10
+	maxAge     = 28
+	maxBackups = 7
+	compress   = true
 )
 
 type StandardLogger interface {
@@ -35,7 +44,10 @@ func New() StandardLogger {
 }
 
 func (l *standardLogger) Setup() error {
-	setDefault()
+	err := setDefault()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -51,7 +63,7 @@ func (l *standardLogger) SetupWithSentry(dsn string) error {
 	return nil
 }
 
-func setDefault() {
+func setDefault() error {
 	log.SetOutput(os.Stdout)
 
 	log.SetLevel(log.DebugLevel)
@@ -60,6 +72,26 @@ func setDefault() {
 		FullTimestamp: true,
 		ForceColors:   true,
 	})
+
+	ljackHook, err := lumberjackrus.NewHook(
+		&lumberjackrus.LogFile{
+			Filename:   logFile,
+			MaxSize:    maxSize,
+			MaxBackups: maxBackups,
+			MaxAge:     maxAge,
+			Compress:   compress,
+		},
+		logrus.DebugLevel,
+		&logrus.JSONFormatter{},
+		&lumberjackrus.LogFileOpts{},
+	)
+	if err != nil {
+		return err
+	}
+
+	log.AddHook(ljackHook)
+
+	return nil
 }
 
 func setDefaultWithSentry(dsn string) error {
@@ -72,18 +104,23 @@ func setDefaultWithSentry(dsn string) error {
 		ForceColors:   true,
 	})
 
-	log.AddHook(lfshook.NewHook(
-		lfshook.PathMap{
-			log.InfoLevel:  "logs.log",
-			log.ErrorLevel: "logs.log",
-			log.DebugLevel: "logs.log",
-			log.FatalLevel: "logs.log",
-			log.PanicLevel: "logs.log",
-			log.TraceLevel: "logs.log",
-			log.WarnLevel:  "logs.log",
+	ljackHook, err := lumberjackrus.NewHook(
+		&lumberjackrus.LogFile{
+			Filename:   logFile,
+			MaxSize:    maxSize,
+			MaxBackups: maxBackups,
+			MaxAge:     maxAge,
+			Compress:   compress,
 		},
-		&log.JSONFormatter{},
-	))
+		logrus.DebugLevel,
+		&logrus.JSONFormatter{},
+		&lumberjackrus.LogFileOpts{},
+	)
+	if err != nil {
+		return err
+	}
+
+	log.AddHook(ljackHook)
 
 	sentryHook, err := logrus_sentry.NewSentryHook(dsn, []log.Level{
 		log.PanicLevel,

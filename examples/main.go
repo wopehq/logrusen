@@ -2,8 +2,6 @@ package main
 
 import (
 	"github.com/teamseodo/logrusen"
-
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -14,7 +12,7 @@ func main() {
 		logger.Error("Logger initialization error", err, nil)
 	}
 	logger.Info("Info testing", nil)
-	logger.Debug("Debug testing", logrus.Fields{"test": "testvalue"})
+	logger.Debug("Debug testing", logrusen.Fields{"test": "testvalue"})
 	logger.Warn("Warn logging", err, nil)
 	logger.Fatal("Fatal logging", err, nil)
 }
