@@ -113,15 +113,8 @@ func errorFields(fields Fields) Fields {
 	if fields == nil {
 		fields = Fields{}
 	}
-	alloc, totalAlloc, sys, numGC := getMemUsage()
+
 	pc, _, line, _ := runtime.Caller(2)
-	fields["memAlloc"] = alloc
-	fields["totalMemAlloc"] = totalAlloc
-	fields["sysMem"] = sys
-	fields["numGC"] = numGC
-	fields["numCPU"] = numGC
-	fields["numGC"] = runtime.NumCPU()
-	fields["numGoroutine"] = runtime.NumGoroutine()
 	fields["caller"] = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), line)
 	return fields
 }
@@ -180,14 +173,4 @@ func (l *standardLogger) Fatal(message string, err error, fields Fields) {
 // so, i use fatal function
 func (l *standardLogger) Panic(message string, err error, fields Fields) {
 	l.Fatal(message, err, fields)
-}
-
-func getMemUsage() (alloc, totalAlloc, sys, numGC uint64) {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	return bToMb(m.Alloc), bToMb(m.TotalAlloc), bToMb(m.Sys), uint64(m.NumGC)
-}
-
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
 }
